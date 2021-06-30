@@ -1,0 +1,302 @@
+
+Check the Minikube Status
+-------------------------
+
+[docker_user@control-plane app]$ minikube status
+minikube
+type: Control Plane
+host: Running
+kubelet: Running
+apiserver: Running
+kubeconfig: Configured
+timeToStop: Nonexistent
+
+Try Launching the Dashboard
+---------------------------
+
+[docker_user@control-plane app]$ minikube dashboard
+🔌  Enabling dashboard ...
+🤔  Verifying dashboard health ...
+🚀  Launching proxy ...
+🤔  Verifying proxy health ...
+🎉  Opening http://127.0.0.1:35805/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-dashboard:/proxy/ in your default browser...
+START /bin/firefox "http://127.0.0.1:35805/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-dashboard:/proxy/"
+Failed to open connection to "session" message bus: Unable to autolaunch a dbus-daemon without a $DISPLAY for X11
+Running without a11y support!
+Error: no DISPLAY environment variable specified
+xdg-open: no method available for opening 'http://127.0.0.1:35805/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-dashboard:/proxy/'
+
+❌  Exiting due to HOST_BROWSER: failed to open browser: exit status 3
+
+Set the X windows system
+------------------------
+
+[docker_user@control-plane app]$ exit
+logout
+[root@control-plane getting-started-master]# xhost +
+access control disabled, clients can connect from any host
+[root@control-plane getting-started-master]# su - docker_user 
+Last login: Wed Jun 23 14:08:48 +0530 2021 on pts/0
+
+[docker_user@control-plane ~]$ export DISPLAY=:0.0
+[docker_user@control-plane ~]$ minikube dashboard
+🤔  Verifying dashboard health ...
+🚀  Launching proxy ...
+🤔  Verifying proxy health ...
+🎉  Opening http://127.0.0.1:45867/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-dashboard:/proxy/ in your default browser...
+START /bin/firefox "http://127.0.0.1:45867/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-dashboard:/proxy/"
+Running without a11y support!
+
+
+Stop the Minikube cluster
+-------------------------
+
+[docker_user@control-plane ~]$ minikube stop
+✋  Stopping node "minikube"  ...
+🛑  Powering off "minikube" via SSH ...
+🛑  1 nodes stopped.
+[docker_user@control-plane ~]$ minikube status
+minikube
+type: Control Plane
+host: Stopped
+kubelet: Stopped
+apiserver: Stopped
+kubeconfig: Stopped
+timeToStop: Nonexistent
+
+[docker_user@control-plane ~]$ minikube start
+😄  minikube v1.16.0 on Oracle 7.9 (vbox/amd64)
+✨  Using the docker driver based on existing profile
+👍  Starting control plane node minikube in cluster minikube
+🔄  Restarting existing docker container for "minikube" ...
+🎉  minikube 1.21.0 is available! Download it: https://github.com/kubernetes/minikube/releases/tag/v1.21.0
+💡  To disable this notice, run: 'minikube config set WantUpdateNotification false'
+
+🐳  Preparing Kubernetes v1.20.0 on Docker 20.10.0 ...
+🔎  Verifying Kubernetes components...
+❗  Executing "docker container inspect minikube --format={{.State.Status}}" took an unusually long time: 2.171307183s
+💡  Restarting the docker service may improve performance.
+🌟  Enabled addons: default-storageclass, storage-provisioner, dashboard
+🏄  Done! kubectl is now configured to use "minikube" cluster and "default" namespace by default
+[docker_user@control-plane ~]$ minikube status
+minikube
+type: Control Plane
+host: Running
+kubelet: Running
+apiserver: Running
+kubeconfig: Configured
+timeToStop: Nonexistent
+
+
+Check in side the Minikube container
+------------------------------------
+
+[docker_user@control-plane ~]$ docker ps
+CONTAINER ID        IMAGE                                           COMMAND                  CREATED             STATUS              PORTS                                                                                                      NAMES
+07615dab8cc3        getting-started                                 "docker-entrypoint.s…"   3 days ago          Up 3 days           0.0.0.0:3000->3000/tcp                                                                                     youthful_herschel
+b8367d5b480f        jenkinsci/blueocean                             "/sbin/tini -- /usr/…"   10 days ago         Up 10 days          0.0.0.0:8080->8080/tcp, 0.0.0.0:50000->50000/tcp                                                           jenkins-blueocean
+587df0003409        centos                                          "/bin/bash"              2 weeks ago         Up 2 weeks          0.0.0.0:8888->8080/tcp                                                                                     tomcat_container
+f0ce1b3ebebe        gcr.io/k8s-minikube/kicbase:v0.0.15-snapshot4   "/usr/local/bin/entr…"   2 months ago        Up 17 minutes       127.0.0.1:32775->22/tcp, 127.0.0.1:32774->2376/tcp, 127.0.0.1:32773->5000/tcp, 127.0.0.1:32772->8443/tcp   minikube
+
+
+[docker_user@control-plane ~]$ docker exec -it f0ce1b3ebebe /bin/bash
+root@minikube:/# ip addr
+
+
+root@minikube:/# docker ps
+
+
+Create a Pod Resource with kubectl command line
+-----------------------------------------------
+
+
+Let’s create an NGINX pod resource on Minikube with command line
+
+kubectl run mynginxapp --image=nginx:latest --port=80
+
+
+lets perform the same with a manifest file
+------------------------------------------
+
+create the first  pod with one nginx container using below manifest which is basicpod.yml file
+
+please copy the below contents to a notepad and save as basicpod.yml file.
+
+apiVersion: v1
+kind: Pod   
+metadata:
+  name: mypod
+spec:
+  containers:
+  - name: mycontainer
+    image: nginx:latest
+
+
+
+ Basic explanation for the basicpod.yml syntax
+ --------------------------------------------
+ apiversion  : v1
+
+ kubernetes supports multiple api versions. v1 is the core api version containing
+ info about the common resources such as pods and nodes. 
+ 
+ kind : pod
+
+  this indicate which kind of resource .. here it is a pod
+
+ metadata :
+    
+   include info relevant to the resource which help identify resource , here the 
+ minimum info name is indicated.
+
+ spec : specification for declared kind
+
+
+ please ensure the extention with you directory
+
+
+
+Create you first pod with kubectl utility.
+-----------------------------------------
+
+[docker_user@control-plane ~]$ kubectl create -f pod1.yml 
+pod/mypod created
+[docker_user@control-plane ~]$ kubectl get po
+NAME                      READY   STATUS              RESTARTS   AGE
+mynginxapp                1/1     Running             0          74m
+mypod                     0/1     ContainerCreating   0          3s
+mypod1                    1/1     Running             4          67d
+mypod2                    1/1     Running             4          65d
+userapp-968dbd55b-zn647   1/1     Running             4          81d
+jenkins-77b75f7cd-bgzl8   2/2     Running             6          7d15h
+
+[docker_user@control-plane ~]$ kubectl get po
+NAME                      READY   STATUS    RESTARTS   AGE
+mynginxapp                1/1     Running   0          75m
+mypod                     1/1     Running   0          12s
+mypod1                    1/1     Running   4          67d
+mypod2                    1/1     Running   4          65d
+userapp-968dbd55b-zn647   1/1     Running   4          81d
+
+
+[docker_user@control-plane ~]$ kubectl describe pod mypod
+Name:         mypod
+Namespace:    default
+Priority:     0
+Node:         minikube/192.168.49.2
+Start Time:   Sat, 26 Jun 2021 22:37:14 +0530
+Labels:       <none>
+Annotations:  <none>
+Status:       Running
+IP:           172.17.0.5
+IPs:
+  IP:  172.17.0.5
+Containers:
+  mycontainer:
+    Container ID:   docker://b45032e6684aa07844aef02534598ac21155be8494fb6cc11a512d6d6d546015
+    Image:          nginx:latest
+    Image ID:       docker-pullable://nginx@sha256:47ae43cdfc7064d28800bc42e79a429540c7c80168e8c8952778c0d5af1c09db
+    Port:           <none>
+    Host Port:      <none>
+    State:          Running
+      Started:      Sat, 26 Jun 2021 22:37:24 +0530
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-cdq8d (ro)
+Conditions:
+  Type              Status
+  Initialized       True 
+  Ready             True 
+  ContainersReady   True 
+  PodScheduled      True 
+Volumes:
+  default-token-cdq8d:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  default-token-cdq8d
+    Optional:    false
+QoS Class:       BestEffort
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                 node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  14s   default-scheduler  Successfully assigned default/mypod to minikube
+  Normal  Pulling    14s   kubelet            Pulling image "nginx:latest"
+  Normal  Pulled     6s    kubelet            Successfully pulled image "nginx:latest" in 7.997405739s
+  Normal  Created    5s    kubelet            Created container mycontainer
+  Normal  Started    5s    kubelet            Started container mycontainer
+
+
+
+mypod is techically a object of pod kind. note that this pod has one container.
+
+
+  please note the IP address of the POD - 172.17.0.5 . no matter how many containers
+  the pod is managing there will be ony one IP.
+  also the container details
+  and carefully observer the last Events session.
+
+
+connect to the minikube with docker ad connect to the ngnix container
+----------------------------------------------------------------------
+
+
+[docker_user@control-plane ~]$ docker ps
+CONTAINER ID        IMAGE                                           COMMAND                  CREATED             STATUS              PORTS                                                                                                      NAMES
+07615dab8cc3        getting-started                                 "docker-entrypoint.s…"   3 days ago          Up 3 days           0.0.0.0:3000->3000/tcp                                                                                     youthful_herschel
+b8367d5b480f        jenkinsci/blueocean                             "/sbin/tini -- /usr/…"   10 days ago         Up 10 days          0.0.0.0:8080->8080/tcp, 0.0.0.0:50000->50000/tcp                                                           jenkins-blueocean
+587df0003409        centos                                          "/bin/bash"              2 weeks ago         Up 2 weeks          0.0.0.0:8888->8080/tcp                                                                                     tomcat_container
+f0ce1b3ebebe        gcr.io/k8s-minikube/kicbase:v0.0.15-snapshot4   "/usr/local/bin/entr…"   2 months ago        Up 2 hours          127.0.0.1:32775->22/tcp, 127.0.0.1:32774->2376/tcp, 127.0.0.1:32773->5000/tcp, 127.0.0.1:32772->8443/tcp   minikube
+
+
+[docker_user@control-plane ~]$ docker exec -it f0ce1b3ebebe /bin/bash
+
+
+ip addr
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    inet 127.0.0.1/8 scope host lo
+       valid_lft forever preferred_lft forever
+2: docker0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default 
+    link/ether 02:42:d7:c9:f7:23 brd ff:ff:ff:ff:ff:ff
+    inet 172.17.0.1/16 brd 172.17.255.255 scope global docker0
+
+69: eth0@if70: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default 
+    link/ether 02:42:c0:a8:31:02 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    inet 192.168.49.2/24 brd 192.168.49.255 scope global eth0
+       valid_lft forever preferred_lft forever
+
+Check the above mount point 
+---------------------------
+
+Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-cdq8d (ro)
+
+
+root@minikube:/# docker ps
+CONTAINER ID   IMAGE                             COMMAND                  CREATED             STATUS             PORTS     NAMES
+b45032e6684a   nginx                             "/docker-entrypoint.…"   5 minutes ago       Up 5 minutes                 k8s_mycontainer_mypod_default_88d1376a-47fd-42bd-a7b6-3252fab28889_0
+e467ed341426   k8s.gcr.io/pause:3.2              "/pause"                 5 minutes ago       Up 5 minutes                 k8s_POD_mypod_default_88d1376a-47fd-42bd-a7b6-3252fab28889_0
+
+root@minikube:/# docker exec -it b45032e6684a bash
+root@mypod:/# ls
+bin   dev		   docker-entrypoint.sh  home  lib64  mnt  proc  run   srv  tmp  var
+boot  docker-entrypoint.d  etc			 lib   media  opt  root  sbin  sys  usr
+root@mypod:/# cd var/
+root@mypod:/var# cd run/
+root@mypod:/var/run# ls
+lock  nginx.pid  secrets  utmp
+root@mypod:/var/run# cd secrets/
+root@mypod:/var/run/secrets# ls
+kubernetes.io
+root@mypod:/var/run/secrets# 
+
+
+
+
