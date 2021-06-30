@@ -1,0 +1,317 @@
+
+Ref:
+
+https://minikube.sigs.k8s.io/docs/start/
+
+Step 1
+======
+
+[root@localhost ~]# minikube start --driver=docker
+bash: minikube: command not found...
+
+Download and install minikube
+
+
+[root@localhost ~]# curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100 61.0M  100 61.0M    0     0  2427k      0  0:00:25  0:00:25 --:--:-- 2935k
+[root@localhost ~]# sudo install minikube-linux-amd64 /usr/local/bin/minikube
+
+[root@localhost ~]# minikube start
+😄  minikube v1.21.0 on Oracle 7.9 (vbox/amd64)
+👎  Unable to pick a default driver. Here is what was considered, in preference order:
+    ▪ docker: Not installed: exec: "docker": executable file not found in $PATH
+    ▪ kvm2: Not installed: exec: "virsh": executable file not found in $PATH
+    ▪ vmware: Not installed: exec: "docker-machine-driver-vmware": executable file not found in $PATH
+    ▪ podman: Not installed: exec: "podman": executable file not found in $PATH
+    ▪ virtualbox: Not installed: unable to find VBoxManage in $PATH
+
+❌  Exiting due to DRV_NOT_DETECTED: No possible driver was detected. Try specifying --driver, or see https://minikube.sigs.k8s.io/docs/start/
+
+as you can notice  it looks for the docker driver by default.
+
+ install docker by following below.
+
+https://github.com/tnhdevops/Basic-CI-CD-Pipeline-on-Docker/blob/main/Docker%20Install%20Doc%20-%20Part%20-%2001
+
+https://youtu.be/RMK9HYDK7Fo?list=PLxPIeQ330yijJyDgIbUWkaNdJIX-Vauyo
+  
+Step 2
+======
+
+Check the docker status 
+
+[root@localhost ~]# systemctl status docker.service
+● docker.service - Docker Application Container Engine
+   Loaded: loaded (/usr/lib/systemd/system/docker.service; enabled; vendor preset: disabled)
+   Active: active (running) since Fri 2021-06-25 13:16:29 +0530; 12s ago
+     Docs: https://docs.docker.com
+ Main PID: 8615 (dockerd)
+    Tasks: 7
+   Memory: 24.4M
+   CGroup: /system.slice/docker.service
+           └─8615 /usr/bin/dockerd -H fd:// --containerd=/run/containerd/cont...
+
+Jun 25 13:16:27 localhost.localdomain dockerd[8615]: time="2021-06-25T13:16:2...
+Jun 25 13:16:27 localhost.localdomain dockerd[8615]: time="2021-06-25T13:16:2...
+Jun 25 13:16:27 localhost.localdomain dockerd[8615]: time="2021-06-25T13:16:2...
+Jun 25 13:16:27 localhost.localdomain dockerd[8615]: time="2021-06-25T13:16:2...
+Jun 25 13:16:28 localhost.localdomain dockerd[8615]: time="2021-06-25T13:16:2...
+Jun 25 13:16:28 localhost.localdomain dockerd[8615]: time="2021-06-25T13:16:2...
+Jun 25 13:16:28 localhost.localdomain dockerd[8615]: time="2021-06-25T13:16:2...
+Jun 25 13:16:28 localhost.localdomain dockerd[8615]: time="2021-06-25T13:16:2...
+Jun 25 13:16:29 localhost.localdomain systemd[1]: Started Docker Application ...
+Jun 25 13:16:29 localhost.localdomain dockerd[8615]: time="2021-06-25T13:16:2...
+Hint: Some lines were ellipsized, use -l to show in full.
+
+
+[root@localhost ~]# minikube start
+😄  minikube v1.21.0 on Oracle 7.9 (vbox/amd64)
+✨  Automatically selected the docker driver. Other choices: none, ssh
+
+⛔  Exiting due to RSRC_INSUFFICIENT_CORES: Requested cpu count 2 is greater than the available cpus of 1
+
+
+now you can see it is failing due to not meeting the minimum nuber of processors.
+increase up to 2 cores as demonstrated in the video
+
+Step 3
+======
+
+[root@localhost ~]# minikube start
+😄  minikube v1.21.0 on Oracle 7.9 (vbox/amd64)
+✨  Automatically selected the docker driver. Other choices: ssh, none
+🛑  The "docker" driver should not be used with root privileges.
+💡  If you are running minikube within a VM, consider using --driver=none:
+📘    https://minikube.sigs.k8s.io/docs/reference/drivers/none/
+
+❌  Exiting due to DRV_AS_ROOT: The "docker" driver should not be used with root privileges.
+
+now it fails because the command executed under root
+create the docker_user
+
+[root@localhost ~]# 
+
+
+[root@localhost ~]# useradd docker_user
+[root@localhost ~]# echo "docker_user  ALL=(ALL)  NOPASSWD: /usr/bin/docker" >> /etc/sudoers
+[root@localhost ~]# echo "alias docker=\"sudo /usr/bin/docker\"" >> /home/docker_user/.bash_profile
+[root@localhost ~]# su - docker_user 
+[docker_user@localhost ~]$ id
+uid=54332(docker_user) gid=54332(docker_user) groups=54332(docker_user) context=unconfined_u:unconfined_r:unconfined_t:s0-s0:c0.c1023
+
+[docker_user@localhost ~]$ minikube start
+😄  minikube v1.21.0 on Oracle 7.9 (vbox/amd64)
+👎  Unable to pick a default driver. Here is what was considered, in preference order:
+    ▪ docker: Not healthy: "docker version --format {{.Server.Os}}-{{.Server.Version}}" exit status 1: Got permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock: Get "http://%2Fvar%2Frun%2Fdocker.sock/v1.40/version": dial unix /var/run/docker.sock: connect: permission denied
+    ▪ docker: Suggestion: Add your user to the 'docker' group: 'sudo usermod -aG docker $USER && newgrp docker' <https://docs.docker.com/engine/install/linux-postinstall/>
+    ▪ kvm2: Not installed: exec: "virsh": executable file not found in $PATH
+    ▪ vmware: Not installed: exec: "docker-machine-driver-vmware": executable file not found in $PATH
+    ▪ podman: Not installed: exec: "podman": executable file not found in $PATH
+    ▪ virtualbox: Not installed: unable to find VBoxManage in $PATH
+
+❌  Exiting due to DRV_NOT_HEALTHY: Found driver(s) but none were healthy. See above for suggestions how to fix installed drivers.
+
+
+now it is failing because the docker_user not belongs to Docker group . add as below
+
+
+[docker_user@localhost ~]$ exit
+logout
+[root@localhost ~]# usermod -aG docker docker_user
+[root@localhost ~]# su - docker_user 
+Last login: Fri Jun 25 13:28:04 +0530 2021 on pts/0
+
+[docker_user@localhost ~]$ minikube start
+😄  minikube v1.21.0 on Oracle 7.9 (vbox/amd64)
+✨  Automatically selected the docker driver
+👍  Starting control plane node minikube in cluster minikube
+🚜  Pulling base image ...
+💾  Downloading Kubernetes v1.20.7 preload ...
+    > gcr.io/k8s-minikube/kicbase...: 359.09 MiB / 359.09 MiB  100.00% 1.64 MiB
+    > preloaded-images-k8s-v11-v1...: 492.20 MiB / 492.20 MiB  100.00% 1.92 MiB
+🔥  Creating docker container (CPUs=2, Memory=2400MB) ...
+
+🧯  Docker is nearly out of disk space, which may cause deployments to fail! (97% of capacity)
+💡  Suggestion: 
+
+    Try one or more of the following to free up space on the device:
+    
+    1. Run "docker system prune" to remove unused Docker data (optionally with "-a")
+    2. Increase the storage allocated to Docker for Desktop by clicking on:
+    Docker icon > Preferences > Resources > Disk Image Size
+    3. Run "minikube ssh -- docker system prune" if using the Docker container runtime
+🍿  Related issue: https://github.com/kubernetes/minikube/issues/9024
+
+❗  This container is having trouble accessing https://k8s.gcr.io
+💡  To pull new external images, you may need to configure a proxy: https://minikube.sigs.k8s.io/docs/reference/networking/proxy/
+🐳  Preparing Kubernetes v1.20.7 on Docker 20.10.7 ...
+    ▪ Generating certificates and keys ...
+    ▪ Booting up control plane ...
+    ▪ Configuring RBAC rules ...
+🔎  Verifying Kubernetes components...
+    ▪ Using image gcr.io/k8s-minikube/storage-provisioner:v5
+🌟  Enabled addons: default-storageclass, storage-provisioner
+💡  kubectl not found. If you need it, try: 'minikube kubectl -- get pods -A'
+🏄  Done! kubectl is now configured to use "minikube" cluster and "default" namespace by default
+
+there is a warining due to a space issue above but after frreing up some space it was success as below
+
+[docker_user@localhost ~]$ df -h
+Filesystem           Size  Used Avail Use% Mounted on
+devtmpfs             4.8G     0  4.8G   0% /dev
+tmpfs                4.8G  677M  4.1G  14% /dev/shm
+tmpfs                4.8G  9.6M  4.8G   1% /run
+tmpfs                4.8G     0  4.8G   0% /sys/fs/cgroup
+/dev/mapper/ol-root   43G   34G  8.4G  81% /
+/dev/sda1           1014M  337M  678M  34% /boot
+OracleSW             731G  715G   17G  98% /media/sf_OracleSW
+tmpfs                973M   44K  973M   1% /run/user/0
+[docker_user@localhost ~]$ minikube stop
+✋  Stopping node "minikube"  ...
+🛑  Powering off "minikube" via SSH ...
+🛑  1 nodes stopped.
+[docker_user@localhost ~]$ minikube start
+😄  minikube v1.21.0 on Oracle 7.9 (vbox/amd64)
+✨  Using the docker driver based on existing profile
+👍  Starting control plane node minikube in cluster minikube
+🚜  Pulling base image ...
+🔄  Restarting existing docker container for "minikube" ...
+🐳  Preparing Kubernetes v1.20.7 on Docker 20.10.7 ...
+🔎  Verifying Kubernetes components...
+    ▪ Using image gcr.io/k8s-minikube/storage-provisioner:v5
+🌟  Enabled addons: storage-provisioner, default-storageclass
+💡  kubectl not found. If you need it, try: 'minikube kubectl -- get pods -A'
+🏄  Done! kubectl is now configured to use "minikube" cluster and "default" namespace by default
+
+Step 4
+======
+
+kubectl is not available but can use the minikube version of kubectl
+
+[docker_user@localhost ~]$ kubectl
+bash: kubectl: command not found...
+
+[docker_user@localhost ~]$ minikube kubectl -- get po
+    > kubectl.sha256: 64 B / 64 B [--------------------------] 100.00% ? p/s 0s
+    > kubectl: 38.36 MiB / 38.36 MiB [---------------] 100.00% 3.11 MiB p/s 13s
+No resources found in default namespace.
+[docker_user@localhost ~]$ minikube kubectl -- get no
+NAME       STATUS   ROLES                  AGE     VERSION
+minikube   Ready    control-plane,master   6m33s   v1.20.7
+[docker_user@localhost ~]$ minikube status
+minikube
+type: Control Plane
+host: Running
+kubelet: Running
+apiserver: Running
+kubeconfig: Configured
+
+
+
+[docker_user@localhost ~]$ minikube ip
+192.168.49.2
+[docker_user@localhost ~]$ minikube kubectl cluster-info
+Kubernetes control plane is running at https://192.168.49.2:8443
+KubeDNS is running at https://192.168.49.2:8443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.
+
+Step 5
+======
+
+ get the kubectl tool installed
+
+
+[docker_user@localhost ~]$ cat <<EOF > /etc/yum.repos.d/kubernetes.repo
+> [kubernetes]
+> name=Kubernetes
+> baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+> enabled=1
+> gpgcheck=1
+> repo_gpgcheck=1
+> gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+> EOF
+-bash: /etc/yum.repos.d/kubernetes.repo: Permission denied
+[docker_user@localhost ~]$ exit
+logout
+[root@localhost ~]# cat <<EOF > /etc/yum.repos.d/kubernetes.repo
+> [kubernetes]
+> name=Kubernetes
+> baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+> enabled=1
+> gpgcheck=1
+> repo_gpgcheck=1
+> gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+> EOF
+[root@localhost ~]# yum install -y kubectl
+
+[root@localhost ~]# su - docker_user 
+Last login: Fri Jun 25 13:30:54 +0530 2021 on pts/0
+[docker_user@localhost ~]$ kubectl get po
+No resources found in default namespace.
+[docker_user@localhost ~]$ 
+
+
+[docker_user@localhost ~]$ kubectl config-view
+Error: unknown command "config-view" for "kubectl"
+Run 'kubectl --help' for usage.
+[docker_user@localhost ~]$ kubectl config view
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority: /home/docker_user/.minikube/ca.crt
+    extensions:
+    - extension:
+        last-update: Fri, 25 Jun 2021 13:44:48 +0530
+        provider: minikube.sigs.k8s.io
+        version: v1.21.0
+      name: cluster_info
+    server: https://192.168.49.2:8443
+  name: minikube
+contexts:
+- context:
+    cluster: minikube
+    extensions:
+    - extension:
+        last-update: Fri, 25 Jun 2021 13:44:48 +0530
+        provider: minikube.sigs.k8s.io
+        version: v1.21.0
+      name: context_info
+    namespace: default
+    user: minikube
+  name: minikube
+current-context: minikube
+kind: Config
+preferences: {}
+users:
+- name: minikube
+  user:
+    client-certificate: /home/docker_user/.minikube/profiles/minikube/client.crt
+    client-key: /home/docker_user/.minikube/profiles/minikube/client.key
+[docker_user@localhost ~]$ kubectl get namespaces
+NAME              STATUS   AGE
+default           Active   8h
+kube-node-lease   Active   8h
+kube-public       Active   8h
+kube-system       Active   8h
+[docker_user@localhost ~]$ kubectl get po
+No resources found in default namespace.
+[docker_user@localhost ~]$ kubectl get po --all-namespaces
+NAMESPACE     NAME                               READY   STATUS    RESTARTS   AGE
+kube-system   coredns-74ff55c5b-l4d8v            1/1     Running   2          8h
+kube-system   etcd-minikube                      1/1     Running   2          8h
+kube-system   kube-apiserver-minikube            1/1     Running   2          8h
+kube-system   kube-controller-manager-minikube   1/1     Running   3          8h
+kube-system   kube-proxy-gvqgf                   1/1     Running   2          8h
+kube-system   kube-scheduler-minikube            1/1     Running   2          8h
+kube-system   storage-provisioner                1/1     Running   5          8h
+[docker_user@localhost ~]$ 
+
+
+
+
+
+
+
