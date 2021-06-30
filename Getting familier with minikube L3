@@ -1,0 +1,69 @@
+
+Lets do a Basic Deployment
+--------------------------
+
+$ kubectl create deployment mydep1 --image=nginx:latest --port=80
+
+[docker_user@localhost ~]$ kubectl get po
+NAME                        READY   STATUS              RESTARTS   AGE
+
+go-hello3-58bc9697c-mdt9c   0/1     CrashLoopBackOff    82         18h
+mydep1-54bc48ff48-4rwtp     1/1     Running             0          17s
+mynginxapp                  1/1     Running             0          4h30m
+mypod                       1/1     Running             0          4h16m
+spb1                        1/1     Running             0          17h
+spb1app-74946799c6-lbc6t    1/1     Running             0          17h
+
+[docker_user@localhost ~]$ kubectl get deploy
+NAME        READY   UP-TO-DATE   AVAILABLE   AGE
+go-hello    0/1     1            0           18h
+go-hello3   0/1     1            0           18h
+mydep1      1/1     1            1           47s
+spb1app     1/1     1            1           17h
+
+
+Create a service
+----------------
+
+[docker_user@localhost ~]$ kubectl expose deployment mydep1 --type=NodePort
+service/mydep1 exposed
+[docker_user@localhost ~]$ kubectl get svc
+NAME         TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE
+kubernetes   ClusterIP   10.96.0.1       <none>        443/TCP        5d2h
+mydep1       NodePort    10.107.30.167   <none>        80:32749/TCP   7s
+
+
+
+Let’s find at what address and port Minikube is running mydep1
+--------------------------------------------------------------
+
+[docker_user@localhost ~]$ minikube service mydep1 --url
+http://192.168.49.2:32749
+
+If you go to the returned URL (in this case it is http://192.168.49.2:32749) on your browser,
+you should see the NGINX service running.
+
+Welcome to nginx!
+
+If you see this page, the nginx web server is successfully installed and working. Further configuration is required.
+
+For online documentation and support please refer to nginx.org.
+Commercial support is available at nginx.com.
+
+Thank you for using nginx.
+
+
+Check the dashboard again
+-------------------------
+
+Delete the service and the deployment
+--------------------------------------
+
+$ kubectl delete service mydep1
+
+$ kubectl delete deployment mydep1
+
+
+https://kubernetes.io/docs/reference/kubectl/cheatsheet/
+
+
