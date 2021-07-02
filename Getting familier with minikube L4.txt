@@ -1,0 +1,208 @@
+Re-using the Docker daemon to accomadate as the Imgage Repo for Minikube
+-----------------------------------------------------------------------
+
+https://minikube.sigs.k8s.io/docs/handbook/pushing/
+
+We are going to “plug-in” to the Minikube’s Docker environment, so any image we will build, 
+is going to be instantly visible in our minikube cluster just as if it was pushed to DockerHub 
+or some other repository.
+
+The command to run in the terminal is:
+
+$ eval $(minikube -p minikube docker-env)
+
+Remember, this is going to set the environment for this particular terminal session!
+From now on, anything you will do using `docker` command, will be interpreted by the 
+Docker inside Minikube. If you destroy this terminal session or start another,
+you need to repeat the `eval` command as shown above.
+
+
+[docker_user@localhost ~]$ minikube docker-env
+export DOCKER_TLS_VERIFY="1"
+export DOCKER_HOST="tcp://192.168.49.2:2376"
+export DOCKER_CERT_PATH="/home/docker_user/.minikube/certs"
+export MINIKUBE_ACTIVE_DOCKERD="minikube"
+
+# To point your shell to minikube's docker-daemon, run:
+# eval $(minikube -p minikube docker-env)
+
+the eval command will make platform docker repositiory accessible to minikube cluster by setting the 
+MINIKUBE_ACTIVE_DOCKERD value to minikube.
+
+[docker_user@localhost target]$ echo $MINIKUBE_ACTIVE_DOCKERD
+minikube
+
+[docker_user@localhost ~]$ minikube ssh
+Last login: Wed Jun 30 11:26:24 2021 from 192.168.49.1
+docker@minikube:~$ id
+uid=1000(docker) gid=999(docker) groups=999(docker),27(sudo),110(podman)
+
+try a docker ps with in minikbe environment docker daemon and outside
+
+lets compose a simple docker image
+----------------------------------
+
+[docker_user@localhost ~]$ cd target/
+[docker_user@localhost target]$ ls
+classes                generated-sources                Jpurauserapp-0.0.1-SNAPSHOT.jar.original  maven-status      user-app-dep.yml
+Dockerfile             generated-test-sources           jpurauser.db                              surefire-reports
+Dockerfile-config.txt  Jpurauserapp-0.0.1-SNAPSHOT.jar  maven-archiver                            test-classes
+
+[docker_user@localhost target]$ vi Dockerfile
+
+FROM openjdk:13-jdk-alpine
+COPY Jpurauserapp-0.0.1-SNAPSHOT.jar app.jar
+COPY jpurauser.db jpurauser.db
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "/app.jar"]
+
+
+[docker_user@localhost target]$ docker build -t spb1:v1 .
+Sending build context to Docker daemon  69.67MB
+Step 1/5 : FROM openjdk:13-jdk-alpine
+ ---> c4b0433a01ac
+Step 2/5 : COPY Jpurauserapp-0.0.1-SNAPSHOT.jar app.jar
+ ---> Using cache
+ ---> 32d42c1b65c1
+Step 3/5 : COPY jpurauser.db jpurauser.db
+ ---> Using cache
+ ---> 1f72182ce40f
+Step 4/5 : EXPOSE 8080
+ ---> Using cache
+ ---> 7d1104233b5e
+Step 5/5 : ENTRYPOINT ["java", "-jar", "/app.jar"]
+ ---> Using cache
+ ---> ee4f4a6b77cf
+Successfully built ee4f4a6b77cf
+Successfully tagged spb1:v1
+
+check the newly composed image below - spb1:v1
+----------------------------------------------
+
+[docker_user@localhost target]$ docker images
+REPOSITORY                    TAG                 IMAGE ID            CREATED             SIZE
+go-hello                      1.0                 a2729b3cb8ef        40 minutes ago      12.8kB
+<none>                        <none>              ee296e176901        40 minutes ago      311MB
+m1                            1                   ee4f4a6b77cf        6 hours ago         406MB
+myimage1                      latest              ee4f4a6b77cf        6 hours ago         406MB
+spb1                          v1                  ee4f4a6b77cf        6 hours ago         406MB
+
+lets load the image directly to in-cluster container runtime from Docker platform Repository which will make it
+visible to the minikube cluster. 
+The minikube client will talk directly to the container runtime in the cluster, and run the load commands there - against the same storage.
+
+[docker_user@localhost target]$ minikube image load spb1:v1
+
+[docker_user@localhost target]$ 
+
+connect to minikube environment 
+
+[docker_user@localhost target]$ minikube ssh
+Last login: Tue Jun 29 16:53:34 2021 from 192.168.49.1
+
+veryfy the image availability with in minikube environment
+
+
+docker@minikube:~$ docker images
+
+REPOSITORY                                     TAG        IMAGE ID       CREATED          SIZE
+spb1                                           v1         ee4f4a6b77cf   6 hours ago      406MB
+
+you can see the spb1:v1 image is now available with minikube runtime as we have loaded from Docker 
+platform Repository to Minikube runtime.
+
+Please note loading image in to minikube runtime is not necessary as above we have shared the underline docker Rspository 
+to minikube docker daemon. The image should be visible directly to minikube cluster, This is a workaround
+to make the image accessible to minikube. 
+
+exit from minikube environment
+
+docker@minikube:~$ exit
+logout
+ssh: Process exited with status 127
+
+[docker_user@localhost target]$ kubectl run spb1 --image=spb1:v1 --port=8003
+pod/spb1 created
+
+[docker_user@localhost target]$ kubectl get po
+NAME                        READY   STATUS              RESTARTS   AGE
+d5                          0/1     ErrImageNeverPull   0          5h14m
+discovery                   0/1     ErrImageNeverPull   0          4h39m
+discovery2                  0/1     ImagePullBackOff    0          5h39m
+discovery3                  0/1     ImagePullBackOff    0          5h35m
+discovery5                  0/1     ErrImageNeverPull   0          5h29m
+discovery7                  0/1     ErrImageNeverPull   0          4h19m
+go-hello-6584f6b9d8-j6wt5   0/1     CrashLoopBackOff    9          43m
+go-hello3-58bc9697c-mdt9c   0/1     CrashLoopBackOff    8          36m
+spb1                        1/1     Running             0          7s
+
+
+[docker_user@localhost target]$ kubectl describe po spb1
+Name:         spb1
+Namespace:    default
+Priority:     0
+Node:         minikube/192.168.49.2
+Start Time:   Tue, 29 Jun 2021 23:01:15 +0530
+Labels:       run=spb1
+Annotations:  <none>
+Status:       Running
+IP:           172.17.0.13
+IPs:
+  IP:  172.17.0.13
+Containers:
+  spb1:
+    Container ID:   docker://bfd6a27c12f8deb15d9c62d99a2845cf2a60bea06b69db3436ae5a7a1fa6623d
+    Image:          spb1:v1
+    Image ID:       docker://sha256:ee4f4a6b77cf3e8469c67f83db99cfd2349b9926ca56fbe161808d93185fcd6f
+    Port:           8003/TCP
+    Host Port:      0/TCP
+    State:          Running
+      Started:      Tue, 29 Jun 2021 23:01:17 +0530
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-dgvgn (ro)
+Conditions:
+  Type              Status
+  Initialized       True 
+  Ready             True 
+  ContainersReady   True 
+  PodScheduled      True 
+Volumes:
+  default-token-dgvgn:
+    Type:        Secret (a volume populated by a Secret)
+    SecretName:  default-token-dgvgn
+    Optional:    false
+QoS Class:       BestEffort
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                 node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  29s   default-scheduler  Successfully assigned default/spb1 to minikube
+  Normal  Pulled     28s   kubelet            Container image "spb1:v1" already present on machine
+  Normal  Created    28s   kubelet            Created container spb1
+  Normal  Started    27s   kubelet            Started container spb1
+
+[docker_user@localhost target]$ kubectl create deployment spb1app --image=spb1:v1
+deployment.apps/spb1app created
+[docker_user@localhost target]$ kubectl get po
+NAME                        READY   STATUS              RESTARTS   AGE
+d5                          0/1     ErrImageNeverPull   0          5h16m
+discovery                   0/1     ErrImageNeverPull   0          4h41m
+discovery2                  0/1     ImagePullBackOff    0          5h41m
+discovery3                  0/1     ImagePullBackOff    0          5h37m
+discovery5                  0/1     ErrImageNeverPull   0          5h31m
+discovery7                  0/1     ErrImageNeverPull   0          4h21m
+go-hello-6584f6b9d8-j6wt5   0/1     CrashLoopBackOff    9          45m
+go-hello3-58bc9697c-mdt9c   0/1     CrashLoopBackOff    8          38m
+spb1                        1/1     Running             0          2m7s
+spb1app-74946799c6-lbc6t    1/1     Running             0          11s
+[docker_user@localhost target]$ 
+
+
+
+
+
