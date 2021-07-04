@@ -1,0 +1,158 @@
+Install nodejs
+-------------
+
+[root@localhost ~]# yum install -y oracle-nodejs-release-el7 oracle-release-el7
+
+[root@localhost ~]# yum install nodejs
+
+[root@localhost ~]# yum update oracle-nodejs-release-el7
+[root@localhost ~]# yum update nodejs 
+
+ 
+Let’s create a server.js file with the following content:
+ 
+ 
+var http = require('http');
+ 
+var handleRequest = function(request, response) {
+  console.log('Received request for URL: ' + request.url);
+  response.writeHead(200);
+  response.end('Hello World!');
+};
+var www = http.createServer(handleRequest);
+www.listen(8080);
+
+
+You can run the following command:
+
+[docker_user@localhost ~]$node server.js -  it will not return the control to you in the terminal
+
+And check if the server is running on http://localhost:8080. You should see “Hello World!” text on the web page.
+
+Convert to Docker Container
+
+In the same directory as server.js create a file Dockerfile with following text:
+
+FROM node:latest
+EXPOSE 8080
+COPY server.js .
+CMD node server.js
+
+The Dockerfile will create an image that will start from the node:latest image on the Docker Hub.
+We want to run the docker images locally. So the following command will tell docker to use Minikube deamon to for docker image storage:
+
+
+
+ [docker_user@localhost ~]$eval $(minikube -p minikube docker-env)
+
+You can use eval $(minikube docker-env -u) to change it back to the default.
+Now let’s build the docker image:
+
+[docker_user@localhost ~]$docker build -t my-node:v2 .
+
+[docker_user@localhost ~]$ docker build -t my-node:v2 .
+Sending build context to Docker daemon  1.625GB
+Step 1/4 : FROM node:latest
+Trying to pull repository docker.io/library/node ... 
+latest: Pulling from docker.io/library/node
+0bc3020d05f1: Pull complete 
+a110e5871660: Pull complete 
+83d3c0fa203a: Pull complete 
+a8fd09c11b02: Pull complete 
+14feb89c4a52: Pull complete 
+612a5de913f3: Pull complete 
+b86d81a99d41: Pull complete 
+5dd61d4ad9e8: Pull complete 
+7aae82345965: Pull complete 
+Digest: sha256:ca6daf1543242acb0ca59ff425509eab7defb9452f6ae07c156893db06c7a9a4
+Status: Downloaded newer image for node:latest
+ ---> 7105279fa2ab
+Step 2/4 : EXPOSE 8080
+ ---> Running in 870c3bba68cd
+Removing intermediate container 870c3bba68cd
+ ---> 30af53837fc5
+Step 3/4 : COPY server.js .
+ ---> ac43ae20efc7
+Step 4/4 : CMD node server.js
+ ---> Running in c247975acf3a
+Removing intermediate container c247975acf3a
+ ---> 2cf870ae61aa
+Successfully built 2cf870ae61aa
+Successfully tagged my-node:v2
+
+
+make the image visible to minikube
+
+
+[docker_user@localhost ~]$minikube image load my-node:v2
+
+
+Deploy to the Cluster
+
+To deploy my-node:v2, run the following command:
+
+[docker_user@localhost ~]$kubectl create deployment nodedep1 --image=my-node:v2 --port=8080
+
+[docker_user@localhost ~]$ kubectl create deployment nodedep1 --image=my-node:v2 --port=8080
+deployment.apps/nodedep1 created
+
+[docker_user@localhost ~]$ kubectl get po
+NAME                        READY   STATUS              RESTARTS   AGE
+
+nodedep1-8bcd8fc4c-fctck    1/1     Running             0          6s
+
+
+
+
+[docker_user@localhost ~]$ kubectl get deploy
+NAME        READY   UP-TO-DATE   AVAILABLE   AGE
+go-hello    0/1     1            0           3d20h
+go-hello3   0/1     1            0           3d20h
+nodedep1    1/1     1            1           85s
+spb1app     1/1     1            1           3d19h
+
+
+
+
+[docker_user@localhost ~]$ kubectl get events
+
+to make the deployement accessible to the outside world this time lets create a 
+service type of LoadBalancer.
+
+[docker_user@localhost ~]$ kubectl expose deployment nodedep1 --type=LoadBalancer
+service/nodedep1 exposed
+
+[docker_user@localhost ~]$ kubectl get services
+NAME         TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)          AGE
+kubernetes   ClusterIP      10.96.0.1        <none>        443/TCP          8d
+nodedep1     LoadBalancer   10.109.224.255   <pending>     8080:30187/TCP   13s
+
+
+[root@localhost ~]# xhost +
+access control disabled, clients can connect from any host
+
+[root@localhost ~]# su - docker_user 
+Last login: Sat Jul  3 18:12:08 +0530 2021 on pts/0
+
+[docker_user@localhost ~]$ export DISPLAY=:0.0
+
+[docker_user@localhost ~]$ minikube service nodedep1
+|-----------|----------|-------------|---------------------------|
+| NAMESPACE |   NAME   | TARGET PORT |            URL            |
+|-----------|----------|-------------|---------------------------|
+| default   | nodedep1 |        8080 | http://192.168.49.2:30187 |
+|-----------|----------|-------------|---------------------------|
+🎉  Opening service default/nodedep1 in default browser...
+START /bin/firefox "http://192.168.49.2:30187"
+Running without a11y support!
+
+
+
+[docker_user@localhost ~]$kubectl logs --tail=5 nodedep1-8bcd8fc4c-fctck
+
+
+
+
+ 
+
+
