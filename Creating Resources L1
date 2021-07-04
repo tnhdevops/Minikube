@@ -1,0 +1,319 @@
+
+lets create the second pod which will enable port 80 and a label
+----------------------------------------------------------------
+
+create a another .yml with below manifest.
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mypod
+spec:
+  containers:
+  - name: mycontainer
+    image: nginx:latest
+    ports:
+      - containerPort: 80
+
+[docker_user@localhost ~]$ kubectl create -f port-pod.yml 
+pod/mypod created
+
+[docker_user@localhost ~]$ kubectl get po
+
+NAME                        READY   STATUS              RESTARTS   AGE
+mypod                       1/1     Running             0          119s
+
+
+
+ decribe the new pod
+ -------------------
+
+[docker_user@localhost ~]$ kubectl describe po mypod
+Name:         mypod
+Namespace:    default
+Priority:     0
+Node:         minikube/192.168.49.2
+Start Time:   Sun, 04 Jul 2021 12:57:19 +0530
+Labels:       <none>
+Annotations:  <none>
+Status:       Running
+IP:           172.17.0.2
+IPs:
+  IP:  172.17.0.2
+Containers:
+  mycontainer:
+    Container ID:   docker://e20633768c8d46512d0f001c3a6da0a2dbb7629343c44b9b714292cddbedc266
+    Image:          nginx:latest
+    Image ID:       docker-pullable://nginx@sha256:47ae43cdfc7064d28800bc42e79a429540c7c80168e8c8952778c0d5af1c09db
+    Port:           80/TCP
+    Host Port:      0/TCP
+    State:          Running
+      Started:      Sun, 04 Jul 2021 12:57:28 +0530
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from default-token-dgvgn (ro)
+Conditions:
+
+notice the port
+
+
+ Image ID:       docker-pullable://nginx@sha256:47ae43cdfc7064d28800bc42e79a429540c7c80168e8c8952778c0d5af1c09db
+    Port:           80/TCP
+
+
+[docker_user@localhost ~]$ curl http://172.17.0.2:80
+curl: (7) Failed connect to 172.17.0.2:80; No route to host
+[docker_user@localhost ~]$ curl 172.17.0.2:80
+curl: (7) Failed connect to 172.17.0.2:80; No route to host
+
+ it will not be accessible as the pod running in a container which is in a seperate 
+docker network than where the host machine. In order to access the pod we need to create a service which 
+will expose it to outside.
+
+
+
+in the decribe output , there are info specific to a pod as well as common to all
+resources in the cluster
+
+ for example "Labels:       <none>"
+
+  labels are key value pairs to identify resource attributes.
+like to which application the resource belongs to , in which region the resource 
+is located phycially. 
+ labels can be used to filter the resources . for example listing resources in uswest 
+resgion with kubectl command.
+
+
+see the below manifest
+----------------------
+
+ apiVersion: v1
+kind: Pod
+metadata:
+  name: mypod
+  labels:
+    app: webserver
+spec:
+  containers:
+  - name: mycontainer
+    image: nginx:latest
+    ports:
+      - containerPort: 80
+
+a label is added to identify the type of app where the pod is a part of.
+nginx is a webserver so the label value is a webserver.
+can have multiple labels
+
+[docker_user@localhost ~]$ kubectl create -f label-pod.yml 
+pod/mypod created
+
+
+  lets create a service to access our nginx webserver which is in the cluster.
+create the below .yml file
+
+ apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: webserver
+  name: webserver
+spec:
+  ports:
+  - port: 80
+  selector:
+    app: webserver
+  type: NodePort
+
+ notice the spec :
+
+   the selector defines the labels to match the pods.
+ the last one is the optional " type : NodePort"
+   this will define how to actually expose the service. it allocates a port 
+ for the service on each node in the cluster. the desginated port will be 
+automatically seleted.
+
+create the service as below 
+---------------------------
+
+ [docker_user@localhost ~]$ kubectl create -f service-mypod.yml 
+service/webserver created
+
+
+[docker_user@localhost ~]$ kubectl get svc
+NAME         TYPE           CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE
+kubernetes   ClusterIP      10.96.0.1       <none>        443/TCP          8d
+nodedep1     LoadBalancer   10.101.205.91   <pending>     8080:32321/TCP   15h
+webserver    NodePort       10.100.6.101    <none>        80:32126/TCP     8m38s
+
+
+[docker_user@localhost ~]$ kubectl get po
+NAME                       READY   STATUS    RESTARTS   AGE
+mypod                      1/1     Running   0          4m24s
+
+
+
+As above a  port will be allocated between 30000 to 32767
+
+
+[docker_user@localhost ~]$ kubectl describe svc webserver
+Name:                     webserver
+Namespace:                default
+Labels:                   app=webserver
+Annotations:              <none>
+Selector:                 app=webserver
+Type:                     NodePort
+IP Families:              <none>
+IP:                       10.100.6.101
+IPs:                      10.100.6.101
+Port:                     <unset>  80/TCP
+TargetPort:               80/TCP
+NodePort:                 <unset>  32126/TCP
+Endpoints:                172.17.0.2:80
+Session Affinity:         None
+External Traffic Policy:  Cluster
+Events:                   <none>
+
+
+
+"Endpoints:172.17.0.2:80" are the address of each pod in the seleted group.
+
+
+ lets get the node IPs
+ ---------------------
+
+[docker_user@localhost ~]$ kubectl describe nodes
+Name:               minikube
+Roles:              control-plane,master
+Labels:             beta.kubernetes.io/arch=amd64
+                    beta.kubernetes.io/os=linux
+                    kubernetes.io/arch=amd64
+                    kubernetes.io/hostname=minikube
+                    kubernetes.io/os=linux
+                    minikube.k8s.io/commit=76d74191d82c47883dc7e1319ef7cebd3e00ee11
+                    minikube.k8s.io/name=minikube
+                    minikube.k8s.io/updated_at=2021_06_25T13_40_13_0700
+                    minikube.k8s.io/version=v1.21.0
+                    node-role.kubernetes.io/control-plane=
+                    node-role.kubernetes.io/master=
+Annotations:        kubeadm.alpha.kubernetes.io/cri-socket: /var/run/dockershim.sock
+                    node.alpha.kubernetes.io/ttl: 0
+                    volumes.kubernetes.io/controller-managed-attach-detach: true
+CreationTimestamp:  Fri, 25 Jun 2021 13:40:06 +0530
+Taints:             <none>
+Unschedulable:      false
+Lease:
+  HolderIdentity:  minikube
+  AcquireTime:     <unset>
+  RenewTime:       Sun, 04 Jul 2021 13:21:21 +0530
+Conditions:
+  Type             Status  LastHeartbeatTime                 LastTransitionTime                Reason                       Message
+  ----             ------  -----------------                 ------------------                ------                       -------
+  MemoryPressure   False   Sun, 04 Jul 2021 13:17:49 +0530   Fri, 25 Jun 2021 13:40:01 +0530   KubeletHasSufficientMemory   kubelet has sufficient memory available
+  DiskPressure     False   Sun, 04 Jul 2021 13:17:49 +0530   Fri, 25 Jun 2021 13:40:01 +0530   KubeletHasNoDiskPressure     kubelet has no disk pressure
+  PIDPressure      False   Sun, 04 Jul 2021 13:17:49 +0530   Fri, 25 Jun 2021 13:40:01 +0530   KubeletHasSufficientPID      kubelet has sufficient PID available
+  Ready            True    Sun, 04 Jul 2021 13:17:49 +0530   Fri, 25 Jun 2021 13:40:24 +0530   KubeletReady                 kubelet is posting ready status
+Addresses:
+  InternalIP:  192.168.49.2
+  Hostname:    minikube
+Capacity:
+  cpu:                2
+  ephemeral-storage:  44223388Ki
+  hugepages-2Mi:      0
+  memory:             9958432Ki
+  pods:               110
+Allocatable:
+  cpu:                2
+  ephemeral-storage:  44223388Ki
+  hugepages-2Mi:      0
+  memory:             9958432Ki
+  pods:               110
+System Info:
+  Machine ID:                 b77ec962e3734760b1e756ffc5e83152
+  System UUID:                1613ddf8-fc92-4da6-b38d-32202cabdd75
+  Boot ID:                    8eedfc0f-6b0c-4485-aa8c-d156ba67acf1
+  Kernel Version:             4.14.35-2047.503.1.1.el7uek.x86_64
+  OS Image:                   Ubuntu 20.04.2 LTS
+  Operating System:           linux
+  Architecture:               amd64
+  Container Runtime Version:  docker://20.10.7
+  Kubelet Version:            v1.20.7
+  Kube-Proxy Version:         v1.20.7
+PodCIDR:                      10.244.0.0/24
+PodCIDRs:                     10.244.0.0/24
+Non-terminated Pods:          (16 in total)
+  Namespace                   Name                                         CPU Requests  CPU Limits  Memory Requests  Memory Limits  Age
+  ---------                   ----                                         ------------  ----------  ---------------  -------------  ---
+  default                     mypod                                        0 (0%)        0 (0%)      0 (0%)           0 (0%)         7m54s
+  default                     nodedep1-8bcd8fc4c-gvc6k                     0 (0%)        0 (0%)      0 (0%)           0 (0%)         23m
+  default                     spb1app-74946799c6-lbc6t                     0 (0%)        0 (0%)      0 (0%)           0 (0%)         4d14h
+  default                     spb2                                         0 (0%)        0 (0%)      0 (0%)           0 (0%)         3d14h
+  default                     spb3                                         0 (0%)        0 (0%)      0 (0%)           0 (0%)         3d14h
+  kube-system                 coredns-74ff55c5b-l4d8v                      100m (5%)     0 (0%)      70Mi (0%)        170Mi (1%)     8d
+  kube-system                 etcd-minikube                                100m (5%)     0 (0%)      100Mi (1%)       0 (0%)         8d
+  kube-system                 kube-apiserver-minikube                      250m (12%)    0 (0%)      0 (0%)           0 (0%)         8d
+  kube-system                 kube-controller-manager-minikube             200m (10%)    0 (0%)      0 (0%)           0 (0%)         8d
+  kube-system                 kube-proxy-gvqgf                             0 (0%)        0 (0%)      0 (0%)           0 (0%)         8d
+  kube-system                 kube-scheduler-minikube                      100m (5%)     0 (0%)      0 (0%)           0 (0%)         8d
+  kube-system                 registry-mjt2v                               0 (0%)        0 (0%)      0 (0%)           0 (0%)         4d18h
+  kube-system                 registry-proxy-zwnj5                         0 (0%)        0 (0%)      0 (0%)           0 (0%)         4d18h
+  kube-system                 storage-provisioner                          0 (0%)        0 (0%)      0 (0%)           0 (0%)         8d
+  kubernetes-dashboard        dashboard-metrics-scraper-f6647bd8c-zjvkl    0 (0%)        0 (0%)      0 (0%)           0 (0%)         4d1h
+  kubernetes-dashboard        kubernetes-dashboard-968bcb79-s4wb9          0 (0%)        0 (0%)      0 (0%)           0 (0%)         4d1h
+Allocated resources:
+  (Total limits may be over 100 percent, i.e., overcommitted.)
+  Resource           Requests    Limits
+  --------           --------    ------
+  cpu                750m (37%)  0 (0%)
+  memory             170Mi (1%)  170Mi (1%)
+  ephemeral-storage  100Mi (0%)  0 (0%)
+  hugepages-2Mi      0 (0%)      0 (0%)
+Events:              <none>
+
+
+The Ip addrees are internal private IPs
+
+
+
+[docker_user@localhost ~]$ kubectl get services webserver
+NAME        TYPE       CLUSTER-IP     EXTERNAL-IP   PORT(S)        AGE
+webserver   NodePort   10.100.6.101   <none>        80:32126/TCP   15m
+
+
+[docker_user@localhost ~]$ kubectl get services webserver
+NAME        TYPE       CLUSTER-IP     EXTERNAL-IP   PORT(S)        AGE
+webserver   NodePort   10.100.6.101   <none>        80:32126/TCP   15m
+[docker_user@localhost ~]$ curl 192.168.49.2:32126
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+    body {
+        width: 35em;
+        margin: 0 auto;
+        font-family: Tahoma, Verdana, Arial, sans-serif;
+    }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+
+
+curl will send a http request, the output will be the html output by nginx.
+
+above 192.168.49.2 is the node IP of the minikube server
+it is possible to curl and ping the pod which is inside the cluster as the pod is exposed to outside 
+with the NodePort 32126
